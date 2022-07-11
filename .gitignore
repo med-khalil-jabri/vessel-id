@@ -1,1 +1,7 @@
-W*
+*.pyc
+.gitignore
+data
+images
+results
+weights
+read_db.py
