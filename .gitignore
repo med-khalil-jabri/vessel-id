@@ -1,4 +1,8 @@
-W*
-*.out
-data
 .gitignore
+*.out
+*.pyc
+data
+images
+results
+weights
+read_db.py
