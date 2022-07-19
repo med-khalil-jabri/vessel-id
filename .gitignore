@@ -1,8 +1,8 @@
 .gitignore
 *.out
 *.pyc
-data
+data*
 images
 results
 weights
-read_db.py
+*.db
