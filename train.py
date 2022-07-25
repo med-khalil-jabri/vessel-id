@@ -1,91 +1,58 @@
 import os
-import sqlite3
-from matplotlib.transforms import Transform
-import torch
-import numpy as np
-import pandas as pd
-import pytorch_lightning as pl
+import argparse
 import pytorch_metric_learning as pml
 import torchvision.transforms as transforms
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning import Trainer, seed_everything
-from sklearn.model_selection import train_test_split
+from pytorch_metric_learning import distances, losses, miners, reducers, testers
 from src.dataset_norms import dataset_norms
-from src.models import VisionTransformer
+from src.data_module import VesselDataModule
+from src.vit_module import ViTModule
 
 
-pl.seed_everything(99)
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--seed', type=int, default=99, help='Random seed')
+    # data
+    parser.add_argument('--data-dir', type=str, default='./data/images', help='')
+    parser.add_argument('--database', type=str, default='./data/scraped_ships.db', help='')
+    parser.add_argument('--data-splits', type=str, default='./data/data_splits.txt', help='')
+    # ViT
+    parser.add_argument('--output-size', type=int, default=512, help='')
+    parser.add_argument('--init-head', dest='init-head', action='store_true')
+    parser.add_argument('--no-init-head', dest='init-head', action='store_false')
+    parser.set_defaults(init_head=True)
+    parser.add_argument('--classifier', type=str, default='token', help='')
+    parser.add_argument('--hidden-size', type=int, default=768, help='')
+    parser.add_argument('--img-size', type=int, default=256, help='')
+    parser.add_argument('--patch-size', type=int, default=16, help='')
+    parser.add_argument('--load-from', type=str, help='weights/imagenet21k/ViT-B16.npz')
+    parser.add_argument('--dropout-rate', type=int, default=0, help='')
+    parser.add_argument('--vis', dest='vis', action='store_true')
+    parser.add_argument('--no-vis', dest='vis', action='store_false')
+    parser.set_defaults(vis=True)
+    parser.add_argument('--num-layers', type=int, default=12, help='')
+    parser.add_argument('--mlp-dim', type=int, default=3072, help='')
+    parser.add_argument('--num-heads', type=int, default=12, help='number of attention heads')
+    parser.add_argument('--global-feature-embedding', type=str, default='mean', choices=['mean', 'cls'], help='Whether to use the class token or average over all tokens to get the embeddings')
+    parser.add_argument('--attention-dropout-rate', type=int, default=0, help='')
+    # Training
+    parser.add_argument('--batch-size', type=int, default=128, help='')
+    parser.add_argument('--lr', type=float, default=1e-5, help='')
+    parser.add_argument('--weight_decay', type=float, default=1e-3, help='')
+    args = parser.parse_args()
+    return args
 
 
-class VesselDataset(Dataset):
-    def __init__(self, data_dir, dataframe:pd.DataFrame, transform=None):
-        self.data_dir = data_dir
-        self.dataframe = dataframe
-        self.ids = self.dataframe.id.values
-        self.labels = dataframe.label.values
-        self.imos = dataframe.IMO.values
-        self.transform = transform
-    
-    def __len__(self):
-        return len(self.ids)
-    
-    def __getitem__(self, index):
-        img = Image(os.path.join(self.data_dir, str(self.ids[index]) + '.jpg'))
-        if self.transform:
-            img = self.transform(img)
-        label = torch.tensor(self.labels[index])
-        imo = torch.tensor(self.imos[index])
-        return img, label, imo
+def train(args):
+    seed_everything(args.seed, workers=True)
+    data_module = VesselDataModule(args)
+    model = ViTModule(args)
+    trainer = Trainer()
+    trainer.fit(model, datamodule=data_module)
 
 
-class DataModule(pl.LightningDataModule):
-    def __init__(
-            self,
-            data_dir='./data/images',
-            database='./data/scraped_ships.db',
-            data_splits='./data/data_splits.txt',
-            batch_size: int = 256
-        ):
-        self.data_dir = data_dir
-        self.database = database
-        self.data_splits = data_splits
-        self.batch_size = batch_size
-        self.train_transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(dataset_norms['imagenet21k']['mean'], dataset_norms[('imagenet21k')]['std']),
-            transforms.RandomHorizontalFlip(),
-
-        ])
-        self.test_transform = transforms.Compose([
-            transforms.ToTensor(),
-            Transform
-        ])
-
-    def setup(self):
-        conn = sqlite3.connect('scraped_ships.db')
-        df = pd.read_sql_query("SELECT id, category, IMO FROM scraped_ships", conn)
-        df['label'] = pd.Categorical(df.category).codes
-        data_split = pd.read_csv('data_splits.txt', header=None, names=['id', 'set'], skipinitialspace=True)
-        train_df = df[df.id.isin(data_split[data_split.set == 'TRAIN'].id)]
-        self.train_df, self.val_df = train_test_split(train_df, test_size=0.2, stratify=train_df.IMO)
-        self.test_seen_df = df[df.id.isin(data_split[data_split.set == 'PROBE'].id)]
-        self.test_unseen_df = df[df.id.isin(data_split[data_split.set == 'TEST'].id)]
-        self.train_ds = VesselDataset(self.data_dir, self.train_df, self.train_transform)
-        self.val_ds = VesselDataset(self.data_dir, self.val_df, self.test_transform)
-        self.test_seen_ds = VesselDataset(self.data_dir, self.test_seen_df, self.test_transform)
-        self.test_unseen_ds = VesselDataset(self.data_dir, self.test_unseen_df, self.test_transform)
-
-    def train_dataloader(self):
-        return DataLoader(self.train_ds, batch_size=self.batch_size, shuffle=True, num_workers=os.cpu_count())
-
-    def val_dataloader(self):
-        return DataLoader(self.val_ds, batch_size=self.batch_size, num_workers=os.cpu_count())
-
-    def test_dataloader(self):
-        loaders = {
-            'seen': DataLoader(self.test_seen_ds, batch_size=self.batch_size, num_workers=os.cpu_count()),
-            'unseen': DataLoader(self.test_unseen_ds, batch_size=self.batch_size, num_workers=os.cpu_count())  
-        }
-        return loaders
-
+if __name__ == '__main__':
+    args = get_args()
+    train(args)

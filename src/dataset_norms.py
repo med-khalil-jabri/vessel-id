@@ -11,7 +11,7 @@ dataset_norms: dict = {
         'mean': [0.485, 0.456, 0.406],
         'std': [0.229, 0.224, 0.225]
     },
-    'imagenet21k': { # TODO this are false statistics. Need to change them.
+    'imagenet21k': {
         'mean': [0.485, 0.456, 0.406],
         'std': [0.229, 0.224, 0.225]
     }
