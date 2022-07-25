@@ -44,7 +44,7 @@ class VesselDataModule(pl.LightningDataModule):
             transforms.ToTensor(),
             transforms.Normalize(dataset_norms['imagenet21k']['mean'], dataset_norms[('imagenet21k')]['std']),
         ])
-        self.prepare_data_per_node = True
+        self.prepare_data_per_node = False
         self.save_hyperparameters()
 
     def setup(self, stage):
