@@ -1,0 +1,91 @@
+import os
+import sqlite3
+from matplotlib.transforms import Transform
+import torch
+import numpy as np
+import pandas as pd
+import pytorch_lightning as pl
+import pytorch_metric_learning as pml
+import torchvision.transforms as transforms
+from PIL import Image
+from torch.utils.data import Dataset, DataLoader
+from pytorch_lightning import Trainer, seed_everything
+from sklearn.model_selection import train_test_split
+from src.dataset_norms import dataset_norms
+from src.models import VisionTransformer
+
+
+pl.seed_everything(99)
+
+
+class VesselDataset(Dataset):
+    def __init__(self, data_dir, dataframe:pd.DataFrame, transform=None):
+        self.data_dir = data_dir
+        self.dataframe = dataframe
+        self.ids = self.dataframe.id.values
+        self.labels = dataframe.label.values
+        self.imos = dataframe.IMO.values
+        self.transform = transform
+    
+    def __len__(self):
+        return len(self.ids)
+    
+    def __getitem__(self, index):
+        img = Image(os.path.join(self.data_dir, str(self.ids[index]) + '.jpg'))
+        if self.transform:
+            img = self.transform(img)
+        label = torch.tensor(self.labels[index])
+        imo = torch.tensor(self.imos[index])
+        return img, label, imo
+
+
+class DataModule(pl.LightningDataModule):
+    def __init__(
+            self,
+            data_dir='./data/images',
+            database='./data/scraped_ships.db',
+            data_splits='./data/data_splits.txt',
+            batch_size: int = 256
+        ):
+        self.data_dir = data_dir
+        self.database = database
+        self.data_splits = data_splits
+        self.batch_size = batch_size
+        self.train_transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(dataset_norms['imagenet21k']['mean'], dataset_norms[('imagenet21k')]['std']),
+            transforms.RandomHorizontalFlip(),
+
+        ])
+        self.test_transform = transforms.Compose([
+            transforms.ToTensor(),
+            Transform
+        ])
+
+    def setup(self):
+        conn = sqlite3.connect('scraped_ships.db')
+        df = pd.read_sql_query("SELECT id, category, IMO FROM scraped_ships", conn)
+        df['label'] = pd.Categorical(df.category).codes
+        data_split = pd.read_csv('data_splits.txt', header=None, names=['id', 'set'], skipinitialspace=True)
+        train_df = df[df.id.isin(data_split[data_split.set == 'TRAIN'].id)]
+        self.train_df, self.val_df = train_test_split(train_df, test_size=0.2, stratify=train_df.IMO)
+        self.test_seen_df = df[df.id.isin(data_split[data_split.set == 'PROBE'].id)]
+        self.test_unseen_df = df[df.id.isin(data_split[data_split.set == 'TEST'].id)]
+        self.train_ds = VesselDataset(self.data_dir, self.train_df, self.train_transform)
+        self.val_ds = VesselDataset(self.data_dir, self.val_df, self.test_transform)
+        self.test_seen_ds = VesselDataset(self.data_dir, self.test_seen_df, self.test_transform)
+        self.test_unseen_ds = VesselDataset(self.data_dir, self.test_unseen_df, self.test_transform)
+
+    def train_dataloader(self):
+        return DataLoader(self.train_ds, batch_size=self.batch_size, shuffle=True, num_workers=os.cpu_count())
+
+    def val_dataloader(self):
+        return DataLoader(self.val_ds, batch_size=self.batch_size, num_workers=os.cpu_count())
+
+    def test_dataloader(self):
+        loaders = {
+            'seen': DataLoader(self.test_seen_ds, batch_size=self.batch_size, num_workers=os.cpu_count()),
+            'unseen': DataLoader(self.test_unseen_ds, batch_size=self.batch_size, num_workers=os.cpu_count())  
+        }
+        return loaders
+
