@@ -11,7 +11,7 @@ from src.dataset_norms import dataset_norms
 
 
 class VesselDataset(Dataset):
-    def __init__(self, data_dir, dataframe:pd.DataFrame, transform=None):
+    def __init__(self, data_dir, dataframe:pd.DataFrame, transform):
         self.data_dir = data_dir
         self.dataframe = dataframe
         self.ids = self.dataframe.id.values
@@ -23,9 +23,8 @@ class VesselDataset(Dataset):
         return len(self.ids)
     
     def __getitem__(self, index):
-        img = Image.open(os.path.join(self.data_dir, str(self.ids[index]) + '.jpg'))
-        if self.transform:
-            img = self.transform(img)
+        with Image.open(os.path.join(self.data_dir, str(self.ids[index]) + '.jpg')) as img:
+            img = self.transform(img.convert('RGB'))
         label = torch.tensor(self.labels[index])
         imo = torch.tensor(self.imos[index])
         return img, label, imo
@@ -62,14 +61,15 @@ class VesselDataModule(pl.LightningDataModule):
         self.test_unseen_ds = VesselDataset(self.args.data_dir, self.test_unseen_df, self.test_transform)
 
     def train_dataloader(self):
-        return DataLoader(self.train_ds, batch_size=self.args.batch_size, shuffle=True, num_workers=os.cpu_count())
+        return DataLoader(self.train_ds, batch_size=self.args.batch_size, shuffle=True, num_workers=0
+        )
 
     def val_dataloader(self):
-        return DataLoader(self.val_ds, batch_size=self.args.batch_size, num_workers=os.cpu_count())
+        return DataLoader(self.val_ds, batch_size=self.args.batch_size, num_workers=2)
 
     def test_dataloader(self):
         loaders = {
-            'seen': DataLoader(self.test_seen_ds, batch_size=self.args.batch_size, num_workers=os.cpu_count()),
-            'unseen': DataLoader(self.test_unseen_ds, batch_size=self.args.batch_size, num_workers=os.cpu_count())  
+            'seen': DataLoader(self.test_seen_ds, batch_size=self.args.batch_size, num_workers=2),
+            'unseen': DataLoader(self.test_unseen_ds, batch_size=self.args.batch_size, num_workers=2)  
         }
         return loaders
