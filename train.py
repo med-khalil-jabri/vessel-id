@@ -27,7 +27,7 @@ def get_args():
     parser.add_argument('--hidden-size', type=int, default=768, help='')
     parser.add_argument('--img-size', type=int, default=256, help='')
     parser.add_argument('--patch-size', type=int, default=16, help='')
-    parser.add_argument('--load-from', type=str, help='weights/imagenet21k/ViT-B16.npz')
+    parser.add_argument('--load-from', type=str, default='weights/imagenet21k/ViT-B16.npz', help='')
     parser.add_argument('--dropout-rate', type=int, default=0, help='')
     parser.add_argument('--vis', dest='vis', action='store_true')
     parser.add_argument('--no-vis', dest='vis', action='store_false')
@@ -38,9 +38,11 @@ def get_args():
     parser.add_argument('--global-feature-embedding', type=str, default='mean', choices=['mean', 'cls'], help='Whether to use the class token or average over all tokens to get the embeddings')
     parser.add_argument('--attention-dropout-rate', type=int, default=0, help='')
     # Training
-    parser.add_argument('--batch-size', type=int, default=128, help='')
-    parser.add_argument('--lr', type=float, default=1e-5, help='')
-    parser.add_argument('--weight_decay', type=float, default=1e-3, help='')
+    parser.add_argument('--batch-size', type=int, default=16, help='batch size')
+    parser.add_argument('--num-workers', type=int, default=8, help='number of workers used for dataloaders')
+    parser.add_argument('--grad-acc-batches', type=int, default=8, help='number of gadient accumulation batches')
+    parser.add_argument('--lr', type=float, default=1e-4, help='')
+    parser.add_argument('--weight_decay', type=float, default=1e-2, help='')
     args = parser.parse_args()
     return args
 
@@ -49,7 +51,7 @@ def train(args):
     seed_everything(args.seed, workers=True)
     data_module = VesselDataModule(args)
     model = ViTModule(args)
-    trainer = Trainer()
+    trainer = Trainer(gpus=2, accumulate_grad_batches=args.grad_acc_batches)
     trainer.fit(model, datamodule=data_module)
 
 

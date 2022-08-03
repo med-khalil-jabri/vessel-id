@@ -44,11 +44,12 @@ class VesselDataModule(pl.LightningDataModule):
             transforms.Normalize(dataset_norms['imagenet21k']['mean'], dataset_norms[('imagenet21k')]['std']),
         ])
         self.prepare_data_per_node = False
-        self.save_hyperparameters()
+        self.save_hyperparameters(args)
 
     def setup(self, stage):
         conn = sqlite3.connect(self.args.database)
         df = pd.read_sql_query("SELECT id, category, IMO FROM scraped_ships", conn)
+        df = df[~(df.IMO == '')]
         df['label'] = pd.Categorical(df.category).codes
         data_split = pd.read_csv(self.args.data_splits, header=None, names=['id', 'set'], skipinitialspace=True)
         train_df = df[df.id.isin(data_split[data_split.set == 'TRAIN'].id)]
@@ -61,15 +62,14 @@ class VesselDataModule(pl.LightningDataModule):
         self.test_unseen_ds = VesselDataset(self.args.data_dir, self.test_unseen_df, self.test_transform)
 
     def train_dataloader(self):
-        return DataLoader(self.train_ds, batch_size=self.args.batch_size, shuffle=True, num_workers=0
-        )
+        return DataLoader(self.train_ds, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers)
 
     def val_dataloader(self):
-        return DataLoader(self.val_ds, batch_size=self.args.batch_size, num_workers=2)
+        return DataLoader(self.val_ds, batch_size=self.args.batch_size, num_workers=self.args.num_workers)
 
     def test_dataloader(self):
         loaders = {
-            'seen': DataLoader(self.test_seen_ds, batch_size=self.args.batch_size, num_workers=2),
-            'unseen': DataLoader(self.test_unseen_ds, batch_size=self.args.batch_size, num_workers=2)  
+            'seen': DataLoader(self.test_seen_ds, batch_size=self.args.batch_size, num_workers=self.args.num_workers),
+            'unseen': DataLoader(self.test_unseen_ds, batch_size=self.args.batch_size, num_workers=self.args.num_workers)  
         }
         return loaders

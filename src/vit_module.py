@@ -32,6 +32,24 @@ class ViTModule(pl.LightningModule):
         embeddings, _, _ = self.model(images)
         indices_tuple = self.mining_func(embeddings, labels)
         loss = self.loss_func(embeddings, labels, indices_tuple)
+        self.log("loss", loss)
         return loss
+    
+    def validation_step(self, batch, batch_idx):
+        images, labels, imos = batch
+        embeddings, _, _ = self.model(images)
+        indices_tuple = self.mining_func(embeddings, labels)
+        loss = self.loss_func(embeddings, labels, indices_tuple)
+        self.log("val_loss", loss, on_epoch=True, prog_bar=True)
+        return embeddings, labels, imos
+    
+    def validation_epoch_end(self, validation_step_outputs):
+        outputs = list(zip(*validation_step_outputs))
+        embeddings, labels, imos = tuple(map(lambda x: torch.cat(x), outputs))
+        accuracy_calculator = AccuracyCalculator(include=("precision_at_1",), k=1)
+        imo_accuracy = accuracy_calculator.get_accuracy(embeddings, embeddings, imos, imos, True)
+        cat_accuracy = accuracy_calculator.get_accuracy(embeddings, embeddings, labels, labels, True)
+        self.log("validation/acc@1/imo", imo_accuracy, on_epoch=True)
+        self.log("validation/acc@1/category", cat_accuracy, on_epoch=True)
     
     
