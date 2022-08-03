@@ -27,7 +27,7 @@ class VesselDataset(Dataset):
             img = self.transform(img.convert('RGB'))
         label = torch.tensor(self.labels[index])
         imo = torch.tensor(self.imos[index])
-        return img, label, imo
+        return img, torch.stack([label, imo])
 
 
 class VesselDataModule(pl.LightningDataModule):
