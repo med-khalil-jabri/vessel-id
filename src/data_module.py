@@ -49,9 +49,9 @@ class VesselDataModule(pl.LightningDataModule):
     def setup(self, stage):
         conn = sqlite3.connect(self.args.database)
         df = pd.read_sql_query("SELECT id, category, IMO FROM scraped_ships", conn)
-        df = df[~(df.IMO == '')]
         df['label'] = pd.Categorical(df.category).codes
         data_split = pd.read_csv(self.args.data_splits, header=None, names=['id', 'set'], skipinitialspace=True)
+        df = df[~(df.IMO == '')]
         train_df = df[df.id.isin(data_split[data_split.set == 'TRAIN'].id)]
         self.train_df, self.val_df = train_test_split(train_df, test_size=0.2, stratify=train_df.IMO)
         self.test_seen_df = df[df.id.isin(data_split[data_split.set == 'PROBE'].id)]
