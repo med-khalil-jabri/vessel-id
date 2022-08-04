@@ -6,9 +6,8 @@ import pytorch_lightning as pl
 import pytorch_metric_learning as pml
 from pytorch_lightning import Trainer
 from pytorch_metric_learning import distances, losses, miners, reducers, testers
-from pytorch_metric_learning.utils import accuracy_calculator
-from pytorch_metric_learning.utils.accuracy_calculator import AccuracyCalculator
 from src.models import VisionTransformer
+from src.accuracy_calculator import Calculator
 
 
 class ViTModule(pl.LightningModule):
@@ -28,8 +27,10 @@ class ViTModule(pl.LightningModule):
         self.tester = testers.BaseTester(dataloader_num_workers=self.args.num_workers)
         self.accuracy_calculator = Calculator(include=("precision_at_1", "precision_at_3", "precision_at_5"), k=5)
     
-    def forward(self, x):
-        embeddings, _, _ = self.model(x)
+    def forward(self, x, return_tokens_and_weights=False):
+        embeddings, prepooled_tokens, attn_weights = self.model(x)
+        if return_tokens_and_weights:
+            return embeddings, prepooled_tokens, attn_weights
         return embeddings
     
     def configure_optimizers(self):
@@ -63,23 +64,3 @@ class ViTModule(pl.LightningModule):
         self.log("validation/acc@3/category", cat_accuracy["precision_at_3"], on_epoch=True)
         self.log("validation/acc@5/imo", imo_accuracy["precision_at_5"], on_epoch=True)
         self.log("validation/acc@5/category", cat_accuracy["precision_at_5"], on_epoch=True)
-    
-
-class Calculator(AccuracyCalculator):
-    def calculate_precision_at_3(self, knn_labels, query_labels, **kwargs):
-        return accuracy_calculator.precision_at_k(knn_labels, query_labels[:, None], 3,
-                                                  self.avg_of_avgs,
-                                                  self.return_per_class,
-                                                  self.label_comparison_fn)
-
-    def calculate_precision_at_5(self, knn_labels, query_labels, **kwargs):
-        return accuracy_calculator.precision_at_k(knn_labels, query_labels[:, None], 5,
-                                                  self.avg_of_avgs,
-                                                  self.return_per_class,
-                                                  self.label_comparison_fn)
-
-    def requires_clustering(self):
-        return super().requires_clustering() + ["precision_at_3", "precision_at_5"]
-
-    def requires_knn(self):
-        return super().requires_knn() + ["precision_at_3", "precision_at_5"]
