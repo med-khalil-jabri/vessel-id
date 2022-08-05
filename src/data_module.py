@@ -60,6 +60,21 @@ class VesselDataModule(pl.LightningDataModule):
         self.val_ds = VesselDataset(self.args.data_dir, self.val_df, self.test_transform)
         self.test_seen_ds = VesselDataset(self.args.data_dir, self.test_seen_df, self.test_transform)
         self.test_unseen_ds = VesselDataset(self.args.data_dir, self.test_unseen_df, self.test_transform)
+        # retreive images for visualization
+        self.viz_images = []
+        for _ in range(self.args.n_viz_images):
+            anchor = self.test_seen_df.sample()
+            same_imo = self.train_df[(train_df.IMO == anchor['IMO'].values[0])].sample()
+            same_cat = self.train_df[(train_df.label == anchor['label'].values[0]) & (self.train_df.IMO != anchor['IMO'].values[0])].sample()
+            diff_cat = self.train_df[(train_df.label != anchor['label'].values[0])].sample()
+            keys = ['anchor', 'same_imo', 'same_cat', 'diff_cat']
+            vals = [{
+                'id': im['id'].values[0],
+                'IMO': im['IMO'].values[0],
+                'category': im['category'],
+                'image': Image.open(os.path.join(self.args.data_dir, str(im['id'].values[0]) + '.jpg'))
+            } for im in [anchor, same_imo, same_cat, diff_cat]]
+            self.viz_images.append(dict(zip(keys, vals)))
 
     def train_dataloader(self):
         return DataLoader(self.train_ds, batch_size=self.args.batch_size, shuffle=True, num_workers=self.args.num_workers)
