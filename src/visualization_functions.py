@@ -3,7 +3,6 @@ from PIL import Image
 import torch
 import numpy as np
 from numpy import matlib as mb
-
 from .models import VisionTransformer
 
 
@@ -25,9 +24,7 @@ def compute_spatial_similarity(prepooledA, pooledA, prepooledB, pooledB):
     similarityB = np.reshape(np.sum(im_similarity, axis=0), out_sz)
     return similarityA, similarityB, score
 
-
 def compute_rollout(attn_weights, start_layer=0, attn_head_agg='mean'):
-
     attn_weights = torch.tensor(attn_weights)
     if attn_head_agg == 'mean':
         attn_weights = torch.mean(attn_weights, dim=1)  # avg across heads
@@ -47,52 +44,36 @@ def compute_rollout(attn_weights, start_layer=0, attn_head_agg='mean'):
         rollout_output = attn_weights[i].matmul(rollout_output)
     return rollout_output
 
-
 def generate_sim_maps(A_path, B_path, model, transform, use_gpu=True):
-
-    model.eval()
 
     inpA = transform(Image.open(A_path).convert('RGB')).unsqueeze(0)
     inpB = transform(Image.open(B_path).convert('RGB')).unsqueeze(0)
 
-    if use_gpu:
-        inpA = inpA.cuda()
-        inpB = inpB.cuda()
-
-    with torch.no_grad():
-        outputsA = list(model(inpA))
-        outputsB = list(model(inpB))
+    outputsA = list(model(inpA, return_tokens_and_weights=True))
+    outputsB = list(model(inpB, return_tokens_and_weights=True))
 
     for i in range(len(outputsA)):
         outputsA[i] = outputsA[i].cpu().numpy().squeeze()
     for i in range(len(outputsB)):
         outputsB[i] = outputsB[i].cpu().numpy().squeeze()
 
-    if type(model) == VisionTransformer:
-        output_featA, prepooled_tokensA, attn_weightsA = outputsA
-        output_featB, prepooled_tokensB, attn_weightsB = outputsB
-    else:
-        # ResNet
-        output_featA, prepooled_tokensA = outputsA
-        output_featB, prepooled_tokensB = outputsB
+    output_featA, prepooled_tokensA, attn_weightsA = outputsA
+    output_featB, prepooled_tokensB, attn_weightsB = outputsB
 
     simmapA, simmapB, score = compute_spatial_similarity(prepooled_tokensA, output_featA,
                                                          prepooled_tokensB, output_featB)
 
-    if type(model) == VisionTransformer:
+    original_shape = (simmapA.shape[0], simmapA.shape[1])
 
-        original_shape = (simmapA.shape[0], simmapA.shape[1])
+    rolloutA = compute_rollout(attn_weightsA).cpu()
+    simmapA = torch.matmul(rolloutA, torch.tensor(simmapA.flatten()).float())
+    simmapA = simmapA.detach().numpy().reshape(original_shape)
 
-        rolloutA = compute_rollout(attn_weightsA).cpu()
-        simmapA = torch.matmul(rolloutA, torch.tensor(simmapA.flatten()).float())
-        simmapA = simmapA.detach().numpy().reshape(original_shape)
-
-        rolloutB = compute_rollout(attn_weightsB).cpu()
-        simmapB = torch.matmul(rolloutB, torch.tensor(simmapB.flatten()).float())
-        simmapB = simmapB.detach().numpy().reshape(original_shape)
+    rolloutB = compute_rollout(attn_weightsB).cpu()
+    simmapB = torch.matmul(rolloutB, torch.tensor(simmapB.flatten()).float())
+    simmapB = simmapB.detach().numpy().reshape(original_shape)
 
     return simmapA, simmapB, score
-
 
 def show_cam_on_image(img: np.ndarray,
                       mask: np.ndarray,
@@ -118,11 +99,3 @@ def show_cam_on_image(img: np.ndarray,
     cam = heatmap + img
     cam = cam / np.max(cam)
     return np.uint8(255 * cam)
-
-
-def norm(a):
-    c = a.copy()
-    c = c - np.min(c)
-    max_val = np.max(c)
-    c = c / max_val
-    return c

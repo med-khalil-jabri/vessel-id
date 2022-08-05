@@ -43,6 +43,8 @@ def get_args():
     parser.add_argument('--grad-acc-batches', type=int, default=8, help='number of gadient accumulation batches')
     parser.add_argument('--lr', type=float, default=1e-4, help='')
     parser.add_argument('--weight_decay', type=float, default=1e-2, help='')
+    # Visualization
+    parser.add_argument('--n-viz-images', type=int, default=1, help='the number of images to visualize')
     args = parser.parse_args()
     return args
 
