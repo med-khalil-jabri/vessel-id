@@ -94,5 +94,5 @@ class ViTModule(pl.LightningModule):
                             axes[i+1,j].imshow(Image.open(im_path))
                             axes[i+1,j].axis('off')
                 axes[0,0].axis('off')
-                self.logger.experiment.add_figure('validation/similarity_map/image'+str(im_idx), fig, self.current_epoch)
+                self.logger.experiment.add_figure('validation_similarity_map/epoch_'+str(self.current_epoch)+'/image_'+str(im_idx), fig, self.current_epoch)
                 plt.close(fig)
