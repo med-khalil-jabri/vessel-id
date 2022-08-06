@@ -62,7 +62,7 @@ class ViTModule(pl.LightningModule):
     def validation_epoch_end(self, validation_step_outputs):
         outputs = list(zip(*validation_step_outputs))
         val_embeddings, val_labels = tuple(map(lambda x: torch.cat(x), outputs))
-        train_embeddings, train_labels = self.tester.get_all_embeddings(self.data_module.train_ds, self)
+        train_embeddings, train_labels = self.tester.get_all_embeddings(self.data_module.train_ds_eval, self)
         cat_accuracy = self.accuracy_calculator.get_accuracy(val_embeddings, train_embeddings, val_labels[:, 0], train_labels[:, 0], False)
         imo_accuracy = self.accuracy_calculator.get_accuracy(val_embeddings, train_embeddings, val_labels[:, 1], train_labels[:, 1], False)
         self.log("validation/acc@1/imo", imo_accuracy["precision_at_1"], on_epoch=True)
