@@ -41,19 +41,17 @@ class VesselDataModule(pl.LightningDataModule):
             T.ToTensor(),
             T.Normalize(dataset_norms['imagenet21k']['mean'], dataset_norms[('imagenet21k')]['std']),
             T.RandomHorizontalFlip(p=0.5),
-            T.RandomApply([T.RandomRotation(15)], p=0.25),
-            T.RandomPerspective(p=0.5),
-            T.RandomApply([T.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))], p=0.25),
-            T.RandomAdjustSharpness(sharpness_factor=2, p=0.25),
-            T.RandomAutocontrast(p=0.25),
-            T.Resize(size=(IMAGE_HEIGHT, IMAGE_WIDTH))
+            T.RandomPerspective(p=0.25),
+            T.RandomApply([T.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))], p=0.1),
+            T.RandomAdjustSharpness(sharpness_factor=2, p=0.1),
+            T.RandomAutocontrast(p=0.1),
         ])
         self.test_transform = T.Compose([
             T.ToTensor(),
             T.Normalize(dataset_norms['imagenet21k']['mean'], dataset_norms[('imagenet21k')]['std']),
         ])
         self.prepare_data_per_node = False
-        self.save_hyperparameters(args)
+        self.save_hyperparameters(args, ignore="load_from")
 
     def setup(self, stage):
         conn = sqlite3.connect(self.args.database)
