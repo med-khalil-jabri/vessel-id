@@ -25,10 +25,6 @@ class VisionTransformer(nn.Module):
         self.transformer = Transformer(config, config['img_size'])
         self.head = nn.Linear(config['hidden_size'], self.output_size)
 
-        if config['load_from'] is not None:
-            weights = np.load(config['load_from'])
-            self.load_from(weights)
-
     def forward(self, x):
         prepooled_tokens, attn_weights = self.transformer(x)
         if attn_weights:

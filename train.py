@@ -53,7 +53,10 @@ def get_args():
 def train(args):
     seed_everything(args.seed, workers=True)
     data_module = VesselDataModule(args)
-    model = ViTModule(args, data_module)
+    if args.load_from.endswith('.ckpt'):
+        model = ViTModule.load_from_checkpoint(args.load_from, args=args, data_module=data_module)
+    else:
+        model = ViTModule(args, data_module)
     trainer = Trainer(gpus=2, accumulate_grad_batches=args.grad_acc_batches)
     trainer.fit(model, datamodule=data_module)
 

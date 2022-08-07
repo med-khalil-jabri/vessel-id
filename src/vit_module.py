@@ -21,13 +21,13 @@ class ViTModule(pl.LightningModule):
         self.args = args
         self.model = VisionTransformer(config=vars(args))
         self.data_module = data_module
-        if self.args.load_from:
+        if self.args.load_from.endswith('.npz'):
             self.model.load_from(np.load(self.args.load_from))
         self.distance = distances.CosineSimilarity()
         self.reducer = reducers.ThresholdReducer(low=0)
         self.loss_func = losses.TripletMarginLoss(margin=0.2, distance=self.distance, reducer=self.reducer)
         self.mining_func = miners.TripletMarginMiner(
-            margin=0.2, distance=self.distance, type_of_triplets="semihard"
+            margin=0.2, distance=self.distance, type_of_triplets="hard"#"semihard"
         )
         self.tester = testers.BaseTester(dataloader_num_workers=self.args.num_workers)
         self.accuracy_calculator = Calculator(include=("precision_at_1", "precision_at_3", "precision_at_5"), k=5)
