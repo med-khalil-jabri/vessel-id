@@ -72,7 +72,7 @@ class ViTModule(pl.LightningModule):
         self.log("validation/acc@5/imo", imo_accuracy["precision_at_5"], on_epoch=True)
         self.log("validation/acc@5/category", cat_accuracy["precision_at_5"], on_epoch=True)
         # Similarity visualizaiton
-        if self.global_rank == 0:
+        if self.global_rank == 0 and self.current_epoch % self.args.viz_freq == 0:
             for im_idx, im in enumerate(self.data_module.viz_images):
                 fig, axes = plt.subplots(len(im)+1, len(im)+1, constrained_layout=True, figsize=(10,10))
                 for i, key1 in enumerate(im):
