@@ -59,8 +59,11 @@ class VesselDataModule(pl.LightningDataModule):
         df['label'] = pd.Categorical(df.category).codes
         data_split = pd.read_csv(self.args.data_splits, header=None, names=['id', 'set'], skipinitialspace=True)
         df = df[~(df.IMO == '')]
+        # TODO Remove lines below
+        ####################################
         df = df[df['label'].isin([80 ,45 ,70 ,35 ,134])]
         df = df[~df['IMO'].isin([7397464, 7814101, 8128602, 1006245, 8404991, 5273339, 9378840, 7700180, 9159933, 9546497, 8814275, 8431645])]
+        ####################################
         train_df = df[df.id.isin(data_split[data_split.set == 'TRAIN'].id)]
         self.train_df, self.val_df = train_test_split(train_df, test_size=0.2, stratify=train_df.IMO)
         self.test_seen_df = df[df.id.isin(data_split[data_split.set == 'PROBE'].id)]
