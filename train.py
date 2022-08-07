@@ -44,7 +44,8 @@ def get_args():
     parser.add_argument('--lr', type=float, default=1e-4, help='')
     parser.add_argument('--weight_decay', type=float, default=1e-2, help='')
     # Visualization
-    parser.add_argument('--n-viz-images', type=int, default=1, help='the number of images to visualize')
+    parser.add_argument('--n-viz-images', type=int, default=5, help='the number of images to visualize similarity maps for')
+    parser.add_argument('--viz-freq', type=int, default=10, help='the frequency of logging similarity maps')
     args = parser.parse_args()
     return args
 
