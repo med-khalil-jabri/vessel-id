@@ -27,11 +27,11 @@ class ViTModule(pl.LightningModule):
         self.reducer = reducers.ThresholdReducer(low=0)
         self.loss_func = losses.TripletMarginLoss(margin=0.2, distance=self.distance, reducer=self.reducer)
         self.mining_func = miners.TripletMarginMiner(
-            margin=0.2, distance=self.distance, type_of_triplets="hard"#"semihard"
+            margin=0.2, distance=self.distance, type_of_triplets="semihard" # "hard"
         )
         self.tester = testers.BaseTester(dataloader_num_workers=self.args.num_workers)
         self.accuracy_calculator = Calculator(include=("precision_at_1", "precision_at_3", "precision_at_5"), k=5)
-        self.visualizer = Visualizer(self)
+        self.visualizer = Visualizer(self, args)
     
     def forward(self, x, return_tokens_and_weights=False):
         x = x.to(self.device)

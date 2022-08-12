@@ -9,12 +9,13 @@ from src.dataset_norms import dataset_norms
 
 
 class Visualizer:
-    def __init__(self, model):
+    def __init__(self, model, args):
         self.model = model
+        self.args = args
 
     def get_sim_maps(self, imageA_path, imageB_path):
         transform = transforms.Compose([
-            transforms.Resize((256, 256)),
+            transforms.Resize((self.args.img_size, self.args.img_size)),
             transforms.ToTensor(),
             transforms.Normalize(dataset_norms['imagenet21k']['mean'], dataset_norms[('imagenet21k')]['std'])])
         transform_greyscale = transforms.Compose([
