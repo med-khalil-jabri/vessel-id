@@ -38,14 +38,14 @@ def get_args():
     parser.add_argument('--global-feature-embedding', type=str, default='mean', choices=['mean', 'cls'], help='Whether to use the class token or average over all tokens to get the embeddings')
     parser.add_argument('--attention-dropout-rate', type=int, default=0, help='')
     # Training
-    parser.add_argument('--batch-size', type=int, default=16, help='batch size')
-    parser.add_argument('--num-workers', type=int, default=8, help='number of workers used for dataloaders')
+    parser.add_argument('--batch-size', type=int, default=128, help='batch size')
+    parser.add_argument('--num-workers', type=int, default=1, help='number of workers used for dataloaders')
     parser.add_argument('--grad-acc-batches', type=int, default=8, help='number of gadient accumulation batches')
     parser.add_argument('--lr', type=float, default=1e-4, help='')
     parser.add_argument('--weight_decay', type=float, default=1e-2, help='')
     # Visualization
     parser.add_argument('--n-viz-images', type=int, default=5, help='the number of images to visualize similarity maps for')
-    parser.add_argument('--viz-freq', type=int, default=10, help='the frequency of logging similarity maps')
+    parser.add_argument('--viz-freq', type=int, default=5, help='the frequency of logging similarity maps')
     args = parser.parse_args()
     return args
 
@@ -57,7 +57,7 @@ def train(args):
         model = ViTModule.load_from_checkpoint(args.load_from, args=args, data_module=data_module)
     else:
         model = ViTModule(args, data_module)
-    trainer = Trainer(gpus=2, accumulate_grad_batches=args.grad_acc_batches)
+    trainer = Trainer(gpus=[0], accumulate_grad_batches=args.grad_acc_batches)
     trainer.fit(model, datamodule=data_module)
 
 

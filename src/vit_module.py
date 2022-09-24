@@ -23,15 +23,17 @@ class ViTModule(pl.LightningModule):
         self.data_module = data_module
         if self.args.load_from.endswith('.npz'):
             self.model.load_from(np.load(self.args.load_from))
-        self.distance = distances.CosineSimilarity()
-        self.reducer = reducers.ThresholdReducer(low=0)
-        self.loss_func = losses.TripletMarginLoss(margin=0.2, distance=self.distance, reducer=self.reducer)
-        self.mining_func = miners.TripletMarginMiner(
-            margin=0.2, distance=self.distance, type_of_triplets="semihard" # "hard"
-        )
         self.tester = testers.BaseTester(dataloader_num_workers=self.args.num_workers)
         self.accuracy_calculator = Calculator(include=("precision_at_1", "precision_at_3", "precision_at_5"), k=5)
         self.visualizer = Visualizer(self, args)
+    
+    def setup(self, stage):
+        self.distance = distances.CosineSimilarity()
+        self.reducer = reducers.ClassWeightedReducer(self.data_module.imo2cat_weight)
+        self.loss_func = losses.TripletMarginLoss(margin=0.2, distance=self.distance, reducer=self.reducer)
+        self.mining_func = miners.TripletMarginMiner(
+            margin=0.2, distance=self.distance, type_of_triplets="hard" # "hard"/"semihard"
+        )
     
     def forward(self, x, return_tokens_and_weights=False):
         x = x.to(self.device)
