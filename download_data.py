@@ -36,7 +36,7 @@ class Downloader():
                 print("removed corrupted file :", filepath)
 
 
-conn = sqlite3.connect('scraped_ships.db')
+conn = sqlite3.connect('data/scraped_ships.db')
 df = pd.read_sql('SELECT id, image_ship_url FROM scraped_ships',
             conn)
 
