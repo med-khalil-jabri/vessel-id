@@ -6,28 +6,62 @@ from PIL import Image
 from numpy import matlib as mb
 from src.utils import norm
 from src.dataset_norms import dataset_norms
+from pytorch_grad_cam import GradCAM, ScoreCAM, GradCAMPlusPlus, AblationCAM, XGradCAM, EigenCAM, EigenGradCAM, LayerCAM, FullGrad
+from pytorch_grad_cam.ablation_layer import AblationLayerVit
+
+
+methods = {
+    "gradcam": GradCAM,
+    "scorecam": ScoreCAM,
+    "gradcam++": GradCAMPlusPlus,
+    "ablationcam": AblationCAM,
+    "xgradcam": XGradCAM,
+    "eigencam": EigenCAM,
+    "eigengradcam": EigenGradCAM,
+    "layercam": LayerCAM,
+    "fullgrad": FullGrad
+    }
+
+
+class SimilarityTarget:
+    def __init__(self, distance, anchor_emb):
+        self.anchor_embedding = anchor_emb
+        self.distance = distance
+    
+    def __call__(self, model_output):
+        return self.distance(model_output.unsqueeze(0), self.anchor_embedding)
+
+
+def vit_reshape_transform(tensor, height=16, width=16):
+    result = tensor[:, :, :].reshape(tensor.size(0),
+                                height, width, tensor.size(2))
+    # Bring the channels to the first dimension,
+    # like in CNNs.
+    result = result.transpose(2, 3).transpose(1, 2)
+    return result
 
 
 class Visualizer:
     def __init__(self, model, args):
         self.model = model
         self.args = args
-
-    def get_sim_maps(self, imageA_path, imageB_path):
-        transform = transforms.Compose([
+        self.transform = transforms.Compose([
             transforms.Resize((self.args.img_size, self.args.img_size)),
             transforms.ToTensor(),
             transforms.Normalize(dataset_norms['imagenet21k']['mean'], dataset_norms[('imagenet21k')]['std'])])
-        transform_greyscale = transforms.Compose([
+        self.transform_greyscale = transforms.Compose([
             transforms.Resize((256, 256)),
             transforms.Grayscale(num_output_channels=3)
         ])
-        simmapA, simmapB, sim_score = self.generate_sim_maps(imageA_path, imageB_path, transform)
+
+    def get_sim_maps(self, imageA_path, imageB_path):
+
+        simmapA, simmapB, sim_score = self.generate_sim_maps(imageA_path, imageB_path, self.transform)
         
-        imageA_gs = transform_greyscale(Image.open(imageA_path).convert("RGB"))
+        imageA_gs = self.transform_greyscale(Image.open(imageA_path).convert("RGB"))
         imageA_gs = np.array(imageA_gs) / 255
 
-        imageB_gs = transform_greyscale(Image.open(imageB_path).convert("RGB"))
+        imageB_gs = self.transform_greyscale(Image.open(imageB_path).convert("RGB"))
         imageB_gs = np.array(imageB_gs) / 255
 
         simmapA = norm(cv2.resize(simmapA, (256, 256), interpolation=cv2.INTER_CUBIC))
@@ -109,6 +143,31 @@ class Visualizer:
         simmapB = simmapB.detach().numpy().reshape(original_shape)
 
         return simmapA, simmapB, score
+
+    def get_cam(self, anchor_img_path, compared_img_path, method="gradcam"):
+        anchor_img = self.transform(Image.open(anchor_img_path).convert('RGB')).unsqueeze(0)
+        compared_img = self.transform(Image.open(compared_img_path).convert('RGB')).unsqueeze(0)
+        targets = [SimilarityTarget(lambda a, b: self.model.distance(a, b)[0][0], self.model(anchor_img))]
+        target_layers = [self.model.model.transformer.encoder.encoder_norm]        
+        if method == "ablationcam":
+            cam = methods[method](model=self.model.model,
+                                        target_layers=target_layers,
+                                        use_cuda=True,
+                                        reshape_transform=vit_reshape_transform,
+                                        ablation_layer=AblationLayerVit())
+        else:
+            cam = methods[method](model=self.model,
+                                        target_layers=target_layers,
+                                        use_cuda=True,
+                                        reshape_transform=vit_reshape_transform)
+        cam_img = cam(input_tensor=compared_img,
+                            targets=targets,
+                            eigen_smooth=True,
+                            aug_smooth=False)[0, :]
+        img_gs = self.transform_greyscale(Image.open(compared_img_path).convert("RGB"))
+        img_gs = np.array(img_gs) / 255
+        cam_image = self.show_cam_on_image(img_gs, cam_img)
+        return cam_image
 
     def show_cam_on_image(self, img: np.ndarray, mask: np.ndarray, use_rgb: bool = False,
                           colormap: int = cv2.COLORMAP_JET) -> np.ndarray:
