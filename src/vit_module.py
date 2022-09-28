@@ -30,24 +30,26 @@ class ViTModule(pl.LightningModule):
     def setup(self, stage):
         self.distance = distances.CosineSimilarity()
         self.reducer = reducers.ClassWeightedReducer(self.data_module.imo2cat_weight)
-        self.loss_func = losses.TripletMarginLoss(margin=0.2, distance=self.distance, reducer=self.reducer)
-        self.mining_func = miners.TripletMarginMiner(
-            margin=0.2, distance=self.distance, type_of_triplets="hard" # "hard"/"semihard"
-        )
+        n_imos = len(self.data_module.imo2cat_weight)
+        self.loss_func = losses.CosFaceLoss(n_imos, self.args.output_size, distance=self.distance, reducer=self.reducer)
+        self.mining_func = miners.AngularMiner(angle=50)
+        # self.loss_func = losses.TripletMarginLoss(margin=0.2, distance=self.distance, reducer=self.reducer)
+        # self.mining_func = miners.TripletMarginMiner(
+        #     margin=0.2, distance=self.distance, type_of_triplets="semihard" # "hard"/"semihard"
+        # )
     
     def forward(self, x, return_tokens_and_weights=False):
         x = x.to(self.device)
-        embeddings, prepooled_tokens, attn_weights = self.model(x)
         if return_tokens_and_weights:
-            return embeddings, prepooled_tokens, attn_weights
-        return embeddings
+            return self.model(x, return_all=True)
+        return self.model(x, return_all=False)
     
     def configure_optimizers(self):
         return torch.optim.AdamW(self.parameters(), lr=self.args.lr, weight_decay=self.args.weight_decay)
     
     def training_step(self, batch, batch_idx):
         images, labels = batch
-        embeddings, _, _ = self.model(images)
+        embeddings = self.model(images)
         indices_tuple = self.mining_func(embeddings, labels[:, 1])
         loss = self.loss_func(embeddings, labels[:, 1], indices_tuple)
         self.log("loss", loss)
@@ -55,7 +57,7 @@ class ViTModule(pl.LightningModule):
     
     def validation_step(self, batch, batch_idx):
         images, labels = batch
-        embeddings, _, _ = self.model(images)
+        embeddings = self.model(images)
         indices_tuple = self.mining_func(embeddings, labels[:, 1])
         loss = self.loss_func(embeddings, labels[:, 1], indices_tuple)
         self.log("val_loss", loss, on_epoch=True, prog_bar=True)
@@ -73,28 +75,41 @@ class ViTModule(pl.LightningModule):
         self.log("validation/acc@3/category", cat_accuracy["precision_at_3"], on_epoch=True)
         self.log("validation/acc@5/imo", imo_accuracy["precision_at_5"], on_epoch=True)
         self.log("validation/acc@5/category", cat_accuracy["precision_at_5"], on_epoch=True)
-        # Similarity visualizaiton
+        # Paired Image Similarity visualizaiton
         if self.global_rank == 0 and self.current_epoch % self.args.viz_freq == 0:
             for im_idx, im in enumerate(self.data_module.viz_images):
-                fig, axes = plt.subplots(len(im)+1, len(im)+1, constrained_layout=True, figsize=(10,10))
+                fig, axes = plt.subplots(len(im), len(im), constrained_layout=True, figsize=(12,12))
                 for i, key1 in enumerate(im):
                     for j, key2 in enumerate(im):
-                        if j >= i:
+                        if i == j:
+                            im_path = os.path.join(self.args.data_dir, str(im[key1]['id']) + '.jpg')
+                            axes[i,j].imshow(Image.open(im_path))
+                            axes[i,j].axis('off')
+                        else:
                             im1_path = os.path.join(self.args.data_dir, str(im[key1]['id']) + '.jpg')
                             im2_path = os.path.join(self.args.data_dir, str(im[key2]['id']) + '.jpg')
-                            map1, map2 = self.visualizer.get_sim_maps(im1_path, im2_path)
-                            axes[i+1,j+1].imshow(map1)
-                            axes[j+1,i+1].imshow(map2)
-                            axes[i+1,j+1].axis('off')
-                            axes[j+1,i+1].axis('off')
-                        if i == 0:
-                            im_path = os.path.join(self.args.data_dir, str(im[key2]['id']) + '.jpg')
-                            axes[i,j+1].imshow(Image.open(im_path))
-                            axes[i,j+1].axis('off')
-                        if j == 0:
-                            im_path = os.path.join(self.args.data_dir, str(im[key1]['id']) + '.jpg')
-                            axes[i+1,j].imshow(Image.open(im_path))
-                            axes[i+1,j].axis('off')
-                axes[0,0].axis('off')
-                self.logger.experiment.add_figure('validation_similarity_map/epoch_'+str(self.current_epoch)+'/image_'+str(im_idx), fig, self.current_epoch)
+                            map1, _ = self.visualizer.get_sim_maps(im1_path, im2_path)
+                            axes[i,j].imshow(map1)
+                            axes[i,j].axis('off')
+                self.logger.experiment.add_figure('validation_pairwise_similarity/epoch_'+str(self.current_epoch)+'/image_'+str(im_idx), fig, self.current_epoch)
                 plt.close(fig)
+            # CAM visualization
+            for method in ["gradcam", "gradcam++", "ablationcam", "eigencam", "eigengradcam"]:
+                for im_idx, im in enumerate(self.data_module.viz_images):
+                    fig, axes = plt.subplots(2, len(im), constrained_layout=True, figsize=(12,6))
+                    anchor_path = os.path.join(self.args.data_dir, str(im['anchor']['id']) + '.jpg')
+                    for i, key in enumerate(im):
+                        if key == 'anchor':
+                            axes[1,i].imshow(Image.open(anchor_path))
+                            axes[0,i].axis('off')
+                            axes[1,i].axis('off')
+                        else:
+                            im_path = os.path.join(self.args.data_dir, str(im[key]['id']) + '.jpg')
+                            with torch.set_grad_enabled(True):
+                                cam_img = self.visualizer.get_cam(anchor_path, im_path, method=method)
+                            axes[0,i].imshow(Image.open(im_path))
+                            axes[1,i].imshow(cam_img)
+                            axes[0,i].axis('off')
+                            axes[1,i].axis('off')
+                    self.logger.experiment.add_figure('validation_'+method+'/epoch_'+str(self.current_epoch)+'/image_'+str(im_idx), fig, self.current_epoch)
+                    plt.close(fig)

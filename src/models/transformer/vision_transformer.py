@@ -25,7 +25,7 @@ class VisionTransformer(nn.Module):
         self.transformer = Transformer(config, config['img_size'])
         self.head = nn.Linear(config['hidden_size'], self.output_size)
 
-    def forward(self, x):
+    def forward(self, x, return_all=False):
         prepooled_tokens, attn_weights = self.transformer(x)
         if attn_weights:
             attn_weights = torch.stack(attn_weights)
@@ -36,7 +36,9 @@ class VisionTransformer(nn.Module):
             output_feat = prepooled_tokens.mean(dim=1)
         else:
             raise ValueError('global_feature_embedding must either be "cls" or "mean"')
-        return output_feat, prepooled_tokens, attn_weights
+        if return_all:
+            return output_feat, prepooled_tokens, attn_weights
+        return output_feat
 
     def load_from(self, weights):
         with torch.no_grad():
