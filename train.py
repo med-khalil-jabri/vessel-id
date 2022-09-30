@@ -40,12 +40,13 @@ def get_args():
     # Training
     parser.add_argument('--batch-size', type=int, default=128, help='batch size')
     parser.add_argument('--num-workers', type=int, default=1, help='number of workers used for dataloaders')
-    parser.add_argument('--grad-acc-batches', type=int, default=8, help='number of gadient accumulation batches')
-    parser.add_argument('--lr', type=float, default=1e-4, help='')
-    parser.add_argument('--weight_decay', type=float, default=1e-2, help='')
+    parser.add_argument('--lr', type=float, default=5e-4, help='')
+    parser.add_argument('--weight_decay', type=float, default=1e-3, help='')
+    parser.add_argument('--augment', action='store_true', help='enables data augmentation for training images')
     # Visualization
     parser.add_argument('--n-viz-images', type=int, default=5, help='the number of images to visualize similarity maps for')
     parser.add_argument('--viz-freq', type=int, default=5, help='the frequency of logging similarity maps')
+    parser = Trainer.add_argparse_args(parser)
     args = parser.parse_args()
     return args
 
@@ -57,7 +58,7 @@ def train(args):
         model = ViTModule.load_from_checkpoint(args.load_from, args=args, data_module=data_module)
     else:
         model = ViTModule(args, data_module)
-    trainer = Trainer(gpus=[0], accumulate_grad_batches=args.grad_acc_batches)
+    trainer = Trainer.from_argparse_args(args)
     trainer.fit(model, datamodule=data_module)
 
 
