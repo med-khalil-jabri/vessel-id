@@ -43,6 +43,7 @@ def get_args():
     parser.add_argument('--lr', type=float, default=5e-4, help='')
     parser.add_argument('--weight_decay', type=float, default=1e-3, help='')
     parser.add_argument('--augment', action='store_true', help='enables data augmentation for training images')
+    parser.add_argument('--debug', action='store_true', help='uses small dataset for debugging')
     # Visualization
     parser.add_argument('--n-viz-images', type=int, default=5, help='the number of images to visualize similarity maps for')
     parser.add_argument('--viz-freq', type=int, default=5, help='the frequency of logging similarity maps')

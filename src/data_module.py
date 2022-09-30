@@ -85,6 +85,13 @@ class VesselDataModule(pl.LightningDataModule):
         # Numeric labels
         df['category_label'] = pd.Categorical(df.category).codes
         df['imo_label'] = pd.Categorical(df.IMO).codes
+        # small dataset for debugging
+        # # TODO Remove lines below
+        ####################################
+        if self.args.debug:
+            df = df[df['category_label'].isin([80 ,45 ,70 ,35 ,134])]
+            df = df[~df['IMO'].isin([7397464, 7814101, 8128602, 1006245, 8404991, 5273339, 9378840, 7700180, 9159933, 9546497, 8814275, 8431645])]
+        ####################################
         # Data splitting
         data_split = pd.read_csv(self.args.data_splits, header=None, names=['id', 'set'], skipinitialspace=True)
         train_df = df[df.id.isin(data_split[data_split.set == 'TRAIN'].id)]
