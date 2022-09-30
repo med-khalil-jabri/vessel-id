@@ -21,8 +21,8 @@ class SimilarityMetrics(Metric):
         embeddings = torch.cat(self.embeddings)
         embeddings = F.normalize(embeddings, p=2, dim=1)
         objects_ids = torch.cat(self.objects_ids)
-        index = faiss.IndexFlatL2(embeddings.shape[1])
-        if self.device.type == "cuda":
+        index = faiss.IndexFlatIP(embeddings.shape[1])
+        if embeddings.is_cuda:
             res = faiss.StandardGpuResources()
             index = faiss.index_cpu_to_gpu(res, 0, index)
         index.add(embeddings)
