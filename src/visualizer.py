@@ -166,7 +166,7 @@ class Visualizer:
                             aug_smooth=False)[0, :]
         img_gs = self.transform_greyscale(Image.open(compared_img_path).convert("RGB"))
         img_gs = np.array(img_gs) / 255
-        cam_image = self.show_cam_on_image(img_gs, cam_img)
+        cam_image = self.show_cam_on_image(img_gs, 1 - cam_img)
         return cam_image
 
     def show_cam_on_image(self, img: np.ndarray, mask: np.ndarray, use_rgb: bool = False,
