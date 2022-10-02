@@ -30,6 +30,7 @@ class ViTModule(pl.LightningModule):
         self.distance = distances.CosineSimilarity()
         self.reducer = reducers.ClassWeightedReducer(self.data_module.imo2cat_weight)
         n_imos = len(self.data_module.imo2cat_weight)
+        # self.loss_func = losses.CosFaceLoss(n_imos, self.args.output_size, distance=self.distance)#, reducer=self.reducer)
         self.loss_func = losses.CosFaceLoss(n_imos, self.args.output_size, distance=self.distance, reducer=self.reducer)
         self.mining_func = miners.AngularMiner(angle=50)
     
@@ -44,12 +45,21 @@ class ViTModule(pl.LightningModule):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optmizer, eta_min=self.args.lr/10, T_0=5)
         return [optmizer], [scheduler]
     
+    def log_gradient(self):
+        grad_norm = [param.grad.data.norm(2) for param in self.model.parameters() if param.requires_grad
+                     and param.grad is not None]
+        if grad_norm:
+            avg_grad_norm = torch.stack(grad_norm)
+            self.log(f"gradient/average", torch.mean(avg_grad_norm), on_step=False, on_epoch=True)
+            self.log(f"gradient/max", torch.max(avg_grad_norm), on_step=False, on_epoch=True)
+    
     def training_step(self, batch, batch_idx):
         images, labels = batch
         embeddings = self.model(images)
         indices_tuple = self.mining_func(embeddings, labels[:, 1])
         loss = self.loss_func(embeddings, labels[:, 1], indices_tuple)
         self.log("loss", loss)
+        self.log_gradient()
         return loss
     
     def validation_step(self, batch, batch_idx):
