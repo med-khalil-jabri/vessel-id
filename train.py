@@ -41,16 +41,13 @@ def get_args():
     # Training
     parser.add_argument('--batch-size', type=int, default=128, help='batch size')
     parser.add_argument('--num-workers', type=int, default=1, help='number of workers used for dataloaders')
-    parser.add_argument('--lr', type=float, default=5e-4, help='')
+    parser.add_argument('--lr', type=float, default=1e-4, help='')
     parser.add_argument('--weight-decay', type=float, default=1e-3, help='')
     parser.add_argument('--augment', action='store_true', help='enables data augmentation for training images')
     parser.add_argument('--debug', action='store_true', help='uses small dataset for debugging')
     parser.add_argument('--class-weighting', dest='class-weighting', action='store_true')
     parser.add_argument('--no-class-weighting', dest='class-weighting', action='store_false')
     parser.set_defaults(class_weighting=True)
-    parser.add_argument('--loss', type=str, default='cosface', choices=['cosface', 'triplet'], help='loss function')
-    parser.add_argument('--triplet-mining', type=str, default='hard', choices=['hard', 'semihard'], help='miner for triplet loss')
-    parser.add_argument('--triplet-margin', type=float, default=5, help='margin for triplet miner')
     parser.add_argument('--cosface-margin', type=float, default=50, help='angular miner angle')
 
     # Visualization
