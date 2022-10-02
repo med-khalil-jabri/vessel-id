@@ -29,10 +29,13 @@ class ViTModule(pl.LightningModule):
     
     def setup(self, stage):
         self.distance = distances.CosineSimilarity()
-        self.reducer = BatchClassWeightedReducer(self.data_module.imo2cat_weight)
         n_imos = len(self.data_module.imo2cat_weight)
-        self.loss_func = losses.CosFaceLoss(n_imos, self.args.output_size, distance=self.distance, reducer=self.reducer)
-        self.mining_func = miners.AngularMiner(angle=50)
+        if self.args.class_weighting:
+            self.reducer = BatchClassWeightedReducer(self.data_module.imo2cat_weight)
+            self.loss_func = losses.CosFaceLoss(n_imos, self.args.output_size, distance=self.distance, reducer=self.reducer)
+        else:
+            self.loss_func = losses.CosFaceLoss(n_imos, self.args.output_size, distance=self.distance)
+        self.mining_func = miners.AngularMiner(angle=self.args.cosface_margin)
     
     def forward(self, x, return_tokens_and_weights=False):
         x = x.to(self.device)

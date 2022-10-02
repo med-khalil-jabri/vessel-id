@@ -1,3 +1,4 @@
+from ast import parse
 import os
 import argparse
 import pytorch_metric_learning as pml
@@ -44,6 +45,14 @@ def get_args():
     parser.add_argument('--weight-decay', type=float, default=1e-3, help='')
     parser.add_argument('--augment', action='store_true', help='enables data augmentation for training images')
     parser.add_argument('--debug', action='store_true', help='uses small dataset for debugging')
+    parser.add_argument('--class-weighting', dest='class-weighting', action='store_true')
+    parser.add_argument('--no-class-weighting', dest='class-weighting', action='store_false')
+    parser.set_defaults(class_weighting=True)
+    parser.add_argument('--loss', type=str, default='cosface', choices=['cosface', 'triplet'], help='loss function')
+    parser.add_argument('--triplet-mining', type=str, default='hard', choices=['hard', 'semihard'], help='miner for triplet loss')
+    parser.add_argument('--triplet-margin', type=float, default=5, help='margin for triplet miner')
+    parser.add_argument('--cosface-margin', type=float, default=50, help='angular miner angle')
+
     # Visualization
     parser.add_argument('--n-viz-images', type=int, default=5, help='the number of images to visualize similarity maps for')
     parser.add_argument('--viz-freq', type=int, default=5, help='the frequency of logging similarity maps')
