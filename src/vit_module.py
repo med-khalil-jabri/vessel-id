@@ -13,6 +13,7 @@ from src.models import VisionTransformer
 from src.accuracy_calculator import Calculator
 from src.visualizer import Visualizer
 from src.metrics import SimilarityMetrics
+from src.utils import BatchClassWeightedReducer
 
 
 class ViTModule(pl.LightningModule):
@@ -28,9 +29,8 @@ class ViTModule(pl.LightningModule):
     
     def setup(self, stage):
         self.distance = distances.CosineSimilarity()
-        self.reducer = reducers.ClassWeightedReducer(self.data_module.imo2cat_weight)
+        self.reducer = BatchClassWeightedReducer(self.data_module.imo2cat_weight)
         n_imos = len(self.data_module.imo2cat_weight)
-        # self.loss_func = losses.CosFaceLoss(n_imos, self.args.output_size, distance=self.distance)#, reducer=self.reducer)
         self.loss_func = losses.CosFaceLoss(n_imos, self.args.output_size, distance=self.distance, reducer=self.reducer)
         self.mining_func = miners.AngularMiner(angle=50)
     

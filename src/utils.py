@@ -1,12 +1,22 @@
 import numpy as np
+import torch
+import torch.nn.functional as F
+from pytorch_metric_learning.reducers import ClassWeightedReducer
+from pytorch_metric_learning.utils import common_functions as c_f
 
+class BatchClassWeightedReducer(ClassWeightedReducer):
+    def element_reduction_helper(self, losses, indices, labels):
+        self.weights = c_f.to_device(self.weights, losses, dtype=losses.dtype)
+        weights = self.weights[labels[indices]]
+        weights = weights.shape[0] * F.normalize(weights, dim=0)
+        return torch.mean(losses * weights)
 
 def norm(a):
-        c = a.copy()
-        c = c - np.min(c)
-        max_val = np.max(c)
-        c = c / max_val
-        return c
+    c = a.copy()
+    c = c - np.min(c)
+    max_val = np.max(c)
+    c = c / max_val
+    return c
 
 def fig2array(fig):
     """
