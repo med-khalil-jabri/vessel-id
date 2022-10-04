@@ -72,9 +72,8 @@ class ViTModule(pl.LightningModule):
         loss = self.loss_func(embeddings, labels[:, 1], indices_tuple)
         self.log("val_loss", loss, prog_bar=True)
         self.val_similarity_metrics.update(embeddings, labels)
-        return embeddings, labels
 
-    def validation_epoch_end(self, validation_step_outputs):
+    def validation_epoch_end(self, _):
         top_k_accuracies = self.val_similarity_metrics.compute()
         for top_k, top_k_accuracy in top_k_accuracies.items():
             self.log(f"validation/acc@{top_k}/imo", top_k_accuracy, on_epoch=True)
