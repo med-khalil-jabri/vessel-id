@@ -1,9 +1,9 @@
+import gc
 from typing import Tuple
 import faiss
 import torch
 import torch.nn.functional as F
 from torchmetrics import Metric
-
 
 
 class SimilarityMetrics(Metric):
@@ -18,9 +18,8 @@ class SimilarityMetrics(Metric):
         self.objects_ids.append(target[:, 1])
 
     def compute(self):
-        embeddings = torch.cat(self.embeddings)
-        embeddings = F.normalize(embeddings, p=2, dim=1)
-        objects_ids = torch.cat(self.objects_ids)
+        embeddings = F.normalize(self.embeddings, p=2, dim=1)
+        objects_ids = self.objects_ids
         index = faiss.IndexFlatIP(embeddings.shape[1])
         if embeddings.is_cuda:
             res = faiss.StandardGpuResources()
@@ -36,4 +35,6 @@ class SimilarityMetrics(Metric):
             matches = (neighbours_indices == pred_indices_with_objects_ids[:, 0].view(-1, 1)).float()
             matches_top_k = matches.sum(dim=1).clip(max=1)
             top_k_accuracies[top_k] = matches_top_k.mean()
+        del index
+        gc.collect()
         return top_k_accuracies
