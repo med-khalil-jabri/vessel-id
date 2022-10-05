@@ -64,7 +64,7 @@ def train(args):
     seed_everything(args.seed, workers=True)
     data_module = VesselDataModule(args)
     if args.load_from.endswith('.ckpt'):
-        model = ViTModule.load_from_checkpoint(args.load_from, args=args, data_module=data_module)
+        model = ViTModule.load_from_checkpoint(args.load_from, args=args, data_module=data_module, strict=False)
     else:
         model = ViTModule(args, data_module)
     early_stopper = EarlyStopping('val_loss', mode='min')
