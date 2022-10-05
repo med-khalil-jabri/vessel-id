@@ -14,12 +14,12 @@ class SimilarityMetrics(Metric):
         self.k_for_tops = top_k
 
     def update(self, preds: torch.Tensor, target: torch.Tensor):
-        self.embeddings.append(preds)
+        self.embeddings.append(F.normalize(preds, p=2, dim=1))
         self.objects_ids.append(target[:, 1])
 
     def compute(self):
-        embeddings = F.normalize(self.embeddings, p=2, dim=1)
-        objects_ids = self.objects_ids
+        embeddings = torch.cat(self.embeddings) if type(self.embeddings) == list else self.embeddings
+        objects_ids = torch.cat(self.objects_ids) if type(self.objects_ids) == list else self.objects_ids
         index = faiss.IndexFlatIP(embeddings.shape[1])
         if embeddings.is_cuda:
             res = faiss.StandardGpuResources()
