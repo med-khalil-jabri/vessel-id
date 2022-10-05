@@ -1,4 +1,5 @@
 from ast import parse
+from gc import callbacks
 import os
 import argparse
 import pytorch_metric_learning as pml
@@ -10,6 +11,7 @@ from pytorch_metric_learning import distances, losses, miners, reducers, testers
 from src.dataset_norms import dataset_norms
 from src.data_module import VesselDataModule
 from src.vit_module import ViTModule
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 
 
 def get_args():
@@ -65,7 +67,9 @@ def train(args):
         model = ViTModule.load_from_checkpoint(args.load_from, args=args, data_module=data_module)
     else:
         model = ViTModule(args, data_module)
-    trainer = Trainer.from_argparse_args(args)
+    early_stopper = EarlyStopping('val_loss', mode='min')
+    checkpointer = ModelCheckpoint(monitor='val_loss', mode='min', save_top_k=1, dirpath=None)
+    trainer = Trainer.from_argparse_args(args, callbacks=[early_stopper, checkpointer])
     trainer.fit(model, datamodule=data_module)
 
 
