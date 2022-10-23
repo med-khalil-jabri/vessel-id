@@ -134,8 +134,7 @@ class VesselDataModule(pl.LightningDataModule):
         return DataLoader(self.val_ds, batch_size=self.args.batch_size, num_workers=self.args.num_workers)
 
     def test_dataloader(self):
-        loaders = {
-            'seen': DataLoader(self.test_seen_ds, batch_size=self.args.batch_size, num_workers=self.args.num_workers),
-            'unseen': DataLoader(self.test_unseen_ds, batch_size=self.args.batch_size, num_workers=self.args.num_workers)  
-        }
-        return loaders
+        return [
+            DataLoader(self.test_seen_ds, batch_size=self.args.batch_size, num_workers=self.args.num_workers),
+            DataLoader(self.test_unseen_ds, batch_size=self.args.batch_size, num_workers=self.args.num_workers)   
+        ]

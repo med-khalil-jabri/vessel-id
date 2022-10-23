@@ -26,6 +26,7 @@ class ViTModule(pl.LightningModule):
             self.model.load_from(np.load(self.args.load_from))
         self.visualizer = Visualizer(self, args)
         self.val_similarity_metrics = SimilarityMetrics(top_k=(1, 3, 5))
+        self.test_similarity_metrics = [SimilarityMetrics(top_k=(1, 3, 5)) for _ in range(2)]
     
     def setup(self, stage):
         self.distance = distances.CosineSimilarity()
@@ -115,3 +116,12 @@ class ViTModule(pl.LightningModule):
                             axes[1,i].axis('off')
                     self.logger.experiment.add_figure('validation_'+method+'/epoch_'+str(self.current_epoch)+'/image_'+str(im_idx), fig, self.current_epoch)
                     plt.close(fig)
+    
+    def test_step(self, batch, batch_idx, dataloader_idx):
+        images, labels = batch
+        embeddings = self.model(images)
+        print(dataloader_idx)
+        self.test_similarity_metrics[dataloader_idx].update(embeddings, labels)
+    
+    def test_epoch_end(self, _):
+        print([metric.compute() for metric in self.test_similarity_metrics])
