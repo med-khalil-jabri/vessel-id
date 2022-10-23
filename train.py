@@ -67,9 +67,8 @@ def train(args):
         model = ViTModule.load_from_checkpoint(args.load_from, args=args, data_module=data_module, strict=False)
     else:
         model = ViTModule(args, data_module)
-    early_stopper = EarlyStopping('val_loss', mode='min')
     checkpointer = ModelCheckpoint(monitor='val_loss', mode='min', save_top_k=1, dirpath=None)
-    trainer = Trainer.from_argparse_args(args, callbacks=[early_stopper, checkpointer])
+    trainer = Trainer.from_argparse_args(args, callbacks=[checkpointer])
     trainer.fit(model, datamodule=data_module)
 
 
