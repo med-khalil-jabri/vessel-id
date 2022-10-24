@@ -189,3 +189,5 @@ class ViTModule(pl.LightningModule):
                             axes[1,i].axis('off')
                         plt.savefig(os.path.join(dir_path, f"{ids[idx]}.jpg"))
                         plt.close(fig)
+        print('Accuracy on seen data: ', seen_acc)
+        print('Accuracy on unseen data: ', unseen_acc)
