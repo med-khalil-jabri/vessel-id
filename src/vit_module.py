@@ -1,4 +1,5 @@
 import os
+import shutil
 import numpy as np
 import pandas as pd
 import torch
@@ -124,4 +125,67 @@ class ViTModule(pl.LightningModule):
         self.test_similarity_metrics[dataloader_idx].update(embeddings, labels)
     
     def test_epoch_end(self, _):
-        print([metric.compute() for metric in self.test_similarity_metrics])
+        seen_acc, seen_data_dict = self.test_similarity_metrics[0].compute(return_data=True)
+        unseen_acc, unseen_data_dict = self.test_similarity_metrics[1].compute(return_data=True)
+        if os.path.exists('visualization'):
+            shutil.rmtree('visualization')
+        os.makedirs('visualization')
+        for tag, data_dict in zip(['seen', 'unseen'], [seen_data_dict, unseen_data_dict]):
+            n_imgs = len(data_dict['ids'])
+            n_samples = min(n_imgs, self.args.n_test_viz)
+            idxes = np.random.choice(n_imgs, n_samples)
+            distances, neighbours, imos, ids = data_dict['dist'], data_dict['neighbours'], data_dict['imos'], data_dict['ids']
+            for method in ['pairwise', 'gradcam++', 'ablationcam', 'eigencam']:
+                dir_path = os.path.join('visualization', tag, method)
+                os.makedirs(dir_path)
+                if method == 'pairwise':
+                    for idx in idxes:
+                        fig, axes = plt.subplots(self.args.n_neighbours + 1, self.args.n_neighbours + 1, constrained_layout=True, figsize=(12,12))
+                        for i in range(self.args.n_neighbours + 1):
+                            for j in range(self.args.n_neighbours + 1):
+                                if i == j:
+                                    im_path = os.path.join(self.args.data_dir, f"{ids[neighbours[idx, i]]}.jpg")
+                                    axes[i,j].imshow(Image.open(im_path))
+                                    if i == 0:
+                                        axes[i,j].set_title(f"IMO: {imos[neighbours[idx, i]]}", loc='center')
+                                        axes[i,j].axis('off')
+                                    else:
+                                        axes[i,j].set_title(f"d = {distances[idx, i]:.2f}", loc='center')
+                                        color = 'green' if imos[neighbours[idx, 0]] == imos[neighbours[idx, i]] else 'red'
+                                        axes[i,j].set_xticks([])
+                                        axes[i,j].set_yticks([])
+                                        for spine in axes[i,j].spines.values():
+                                            spine.set_edgecolor(color)
+                                            spine.set_linewidth(5)
+                                else:
+                                    im1_path = os.path.join(self.args.data_dir, f"{ids[neighbours[idx, i]]}.jpg")
+                                    im2_path = os.path.join(self.args.data_dir, f"{ids[neighbours[idx, j]]}.jpg")
+                                    map1, _ = self.visualizer.get_sim_maps(im1_path, im2_path)
+                                    axes[i,j].imshow(map1)
+                                    axes[i,j].axis('off')
+                        plt.savefig(os.path.join(dir_path, f"{ids[idx]}.jpg"))
+                        plt.close(fig)
+                else:
+                    for idx in idxes:
+                        fig, axes = plt.subplots(2, self.args.n_neighbours + 1, constrained_layout=True, figsize=(12,6))
+                        anchor_path = os.path.join(self.args.data_dir, f"{ids[idx]}.jpg")
+                        axes[1,0].imshow(Image.open(im_path))
+                        axes[1,0].set_title(f"IMO: {imos[idx]}", loc='center')
+                        axes[0,0].axis('off')
+                        axes[1,0].axis('off')
+                        for i in range(1, self.args.n_neighbours + 1):
+                            im_path = os.path.join(self.args.data_dir, f"{ids[neighbours[idx, i]]}.jpg")
+                            with torch.set_grad_enabled(True):
+                                cam_img = self.visualizer.get_cam(anchor_path, im_path, method=method)
+                            axes[0,i].imshow(Image.open(im_path))
+                            axes[1,i].imshow(cam_img)
+                            axes[1,i].set_title(f"d = {distances[idx, i]:.2f}", loc='center')
+                            color = 'green' if imos[neighbours[idx, 0]] == imos[neighbours[idx, i]] else 'red'
+                            axes[0,i].set_xticks([])
+                            axes[0,i].set_yticks([])
+                            for spine in axes[0,i].spines.values():
+                                spine.set_edgecolor(color)
+                                spine.set_linewidth(5)
+                            axes[1,i].axis('off')
+                        plt.savefig(os.path.join(dir_path, f"{ids[idx]}.jpg"))
+                        plt.close(fig)

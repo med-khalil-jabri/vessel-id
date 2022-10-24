@@ -30,7 +30,8 @@ class VesselDataset(Dataset):
             img = self.transform(img.convert('RGB'))
         category_label = torch.tensor(self.category_labels[index], dtype=torch.int64)
         imo_label = torch.tensor(self.imo_labels[index], dtype=torch.int64)
-        return img, torch.stack([category_label, imo_label])
+        ids = torch.tensor(self.ids[index], dtype=torch.int64)
+        return img, torch.stack([category_label, imo_label, ids])
 
 
 class VesselDataModule(pl.LightningDataModule):
@@ -113,7 +114,7 @@ class VesselDataModule(pl.LightningDataModule):
         self.imo2cat_weight = torch.from_numpy(imo2cat_weight)
         # retreive images for visualization
         self.viz_images = []
-        for _ in range(self.args.n_viz_images):
+        for _ in range(self.args.n_val_viz):
             anchor = self.test_seen_df.sample()
             same_imo = self.train_df[(train_df.imo_label == anchor['imo_label'].values[0])].sample()
             same_cat = self.train_df[(train_df.category_label == anchor['category_label'].values[0]) & (self.train_df.imo_label != anchor['imo_label'].values[0])].sample()

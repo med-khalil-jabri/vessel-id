@@ -51,14 +51,14 @@ def get_args():
     parser.add_argument('--no-class-weighting', dest='class-weighting', action='store_false')
     parser.set_defaults(class_weighting=True)
     parser.add_argument('--cosface-margin', type=float, default=50, help='angular miner angle')
-
     # Visualization
-    parser.add_argument('--n-viz-images', type=int, default=5, help='the number of images to visualize similarity maps for')
+    parser.add_argument('--n-val-viz', type=int, default=5, help='the number of images to visualize similarity maps for at training time')
     parser.add_argument('--viz-freq', type=int, default=5, help='the frequency of logging similarity maps')
+    parser.add_argument('--n-test-viz', type=int, default=5, help='the number of images to visualize similarity maps for at testing time')
+    parser.add_argument('--n-neighbours', type=int, default=3, help='the number of closest images to visualize similarity maps for at testing time')
     parser = Trainer.add_argparse_args(parser)
     args = parser.parse_args()
     return args
-
 
 def train(args):
     seed_everything(args.seed, workers=True)
