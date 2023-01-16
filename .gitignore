@@ -1,0 +1,8 @@
+.gitignore
+*.out
+*.pyc
+data*
+images
+results
+weights
+*.db
