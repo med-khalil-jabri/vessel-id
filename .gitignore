@@ -3,6 +3,5 @@
 *.pyc
 data*
 images
-results
 weights
 *.db
